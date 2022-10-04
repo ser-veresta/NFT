@@ -21,3 +21,9 @@ export const fetchTokenURI = (url: string) => {
   //   console.log(URI);
   return fetch(URI).then((r) => r.json());
 };
+
+export const merkleFetcher = (path: String) => {
+  let baseUrl = "http://localhost:9000/merkle";
+
+  return fetch(baseUrl + path).then((r) => r.json());
+};

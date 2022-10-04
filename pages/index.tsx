@@ -2,7 +2,7 @@ import { TransactionResponse, Web3Provider } from "@ethersproject/providers";
 import { useWeb3React } from "@web3-react/core";
 import type { NextPage } from "next";
 import useSWR from "swr";
-import { fetcher } from "../utils/fetcher";
+import { fetcher, merkleFetcher } from "../utils/fetcher";
 import { formatEther, parseEther } from "@ethersproject/units";
 import { Contract } from "@ethersproject/contracts";
 import { injectedConnector } from "../utils/web3.config";
@@ -14,12 +14,7 @@ import TokenData from "../components/TokenData";
 import { toast } from "react-toastify";
 import Image from "next/image";
 
-const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-
-let proof = [
-  "0x1ebaa930b8e9130423c183bf38b0564b0103180b7dad301013b18e59880541ae",
-  "0x070e8db97b197cc0e4a1790c5e6c3667bab32d733db7f815fbe84f5824c7168d",
-];
+const contractAddress = "0x9027b5f491496Fa658D534b82F61Aa7df05d1a68";
 
 const Home: NextPage = () => {
   const { account, activate, active, library } = useWeb3React<Web3Provider>();
@@ -34,6 +29,10 @@ const Home: NextPage = () => {
 
   const { data: tokenBalance, mutate: mutateTokenBalance } = useSWR([contractAddress, "balanceOf", account], {
     fetcher: fetcher(library, ABI.abi),
+  });
+
+  const { data } = useSWR([`/proof?id=72db4df8-ecf1-4398-9b26-a5dc69b5cf73&leaf=${account}`], {
+    fetcher: merkleFetcher,
   });
 
   const notify = useCallback((type: "error" | "success", message: string) => {
@@ -52,7 +51,7 @@ const Home: NextPage = () => {
     let filter = contract.filters.Transfer(null, account);
 
     // Event Listener to filter all the tokens for the connect address
-    contract.on(filter, async (...args) => {
+    contract.on("Transfer", async (...args) => {
       const [f, t, token] = args;
       setTokenID((val) => [...val, token.toNumber()]);
 
@@ -82,9 +81,16 @@ const Home: NextPage = () => {
     const contract = new Contract(contractAddress, ABI.abi, library?.getSigner());
 
     try {
-      let test = await contract.callStatic.whitelistMint(proof, account, { value: parseEther("0.001") });
+      if (!data.proof || !data.proof.length) {
+        setMinting(0);
+        return notify("error", "Proof not Generated for you, Plese contact Admin.");
+      }
+
+      let test = await contract.callStatic.whitelistMint(data.proof, account, { value: parseEther("0.001") });
       console.log(test);
-      const txn: TransactionResponse = await contract.whitelistMint(proof, account, { value: parseEther("0.001") });
+      const txn: TransactionResponse = await contract.whitelistMint(data.proof, account, {
+        value: parseEther("0.001"),
+      });
 
       let receipt = await txn.wait();
       console.log(txn, receipt);
@@ -96,9 +102,10 @@ const Home: NextPage = () => {
       setMinting(0);
     } catch (err) {
       const error: any = err;
+      setMinting(0);
 
       if (error.code && error.code in ErrorCode) {
-        return notify("error", error.reason);
+        return notify("error", error.error ? error.error.message : error.reason);
       } else {
         return notify("error", error.message || "Internal Error");
       }

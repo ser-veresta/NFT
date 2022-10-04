@@ -10,7 +10,7 @@ interface props {
   library: any;
 }
 
-const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const contractAddress = "0x9027b5f491496Fa658D534b82F61Aa7df05d1a68";
 
 const TokenData: React.FC<props> = ({ token, library }) => {
   const { data, error } = useSWR([contractAddress, "nftHoldings", token], { fetcher: fetcher(library, ABI.abi) });
@@ -20,6 +20,8 @@ const TokenData: React.FC<props> = ({ token, library }) => {
   const notify = useCallback((type: "error" | "success", message: string) => {
     toast(message, { type });
   }, []);
+
+  console.log(data);
 
   useEffect(() => {
     console.log(data);
