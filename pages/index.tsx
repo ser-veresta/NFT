@@ -3,9 +3,8 @@ import { useWeb3React } from "@web3-react/core";
 import type { NextPage } from "next";
 import useSWR from "swr";
 import { fetcher, merkleFetcher } from "../utils/fetcher";
-import { formatEther, parseEther } from "@ethersproject/units";
+import { parseEther } from "@ethersproject/units";
 import { Contract } from "@ethersproject/contracts";
-import { injectedConnector } from "../utils/web3.config";
 import { ErrorCode } from "@ethersproject/logger";
 import ABI from "../utils/abi.json";
 import Head from "next/head";
@@ -13,11 +12,16 @@ import { useCallback, useEffect, useState } from "react";
 import TokenData from "../components/TokenData";
 import { toast } from "react-toastify";
 import Image from "next/image";
-
-const contractAddress = "0x9027b5f491496Fa658D534b82F61Aa7df05d1a68";
+import Nav from "../components/Nav";
+import { useSelector } from "react-redux";
+import { contractState } from "../redux/Contract";
 
 const Home: NextPage = () => {
-  const { account, activate, active, library } = useWeb3React<Web3Provider>();
+  const { contractAddress, id } = useSelector((state: any): contractState => state.contractReducer);
+
+  console.log(id);
+
+  const { account, active, library } = useWeb3React<Web3Provider>();
 
   const [minting, setMinting] = useState<number>(0);
 
@@ -31,7 +35,7 @@ const Home: NextPage = () => {
     fetcher: fetcher(library, ABI.abi),
   });
 
-  const { data } = useSWR([`/proof?id=72db4df8-ecf1-4398-9b26-a5dc69b5cf73&leaf=${account}`], {
+  const { data } = useSWR([`/proof?id=${id}&leaf=${account}`], {
     fetcher: merkleFetcher,
   });
 
@@ -51,7 +55,7 @@ const Home: NextPage = () => {
     let filter = contract.filters.Transfer(null, account);
 
     // Event Listener to filter all the tokens for the connect address
-    contract.on("Transfer", async (...args) => {
+    contract.on(filter, async (...args) => {
       const [f, t, token] = args;
       setTokenID((val) => [...val, token.toNumber()]);
 
@@ -68,11 +72,6 @@ const Home: NextPage = () => {
     };
   }, [library]);
 
-  // To Handle Wallet Connection
-  const connectWallet = async () => {
-    activate(injectedConnector);
-  };
-
   // To Handle Minting NFT
   const handleMint = async () => {
     console.log("Minting ... ");
@@ -81,7 +80,7 @@ const Home: NextPage = () => {
     const contract = new Contract(contractAddress, ABI.abi, library?.getSigner());
 
     try {
-      if (!data.proof || !data.proof.length) {
+      if (!data || !data.proof || !data.proof.length) {
         setMinting(0);
         return notify("error", "Proof not Generated for you, Plese contact Admin.");
       }
@@ -118,35 +117,7 @@ const Home: NextPage = () => {
         <title>NFT</title>
         <meta name="viewport" content="initial-scale=1.0, width=device-width" />
       </Head>
-      <div className="bg-primary-main h-nav shadow-sm">
-        <div className="w-11/12 flex justify-around items-center h-full m-auto">
-          <h1 className="text-3xl font-bold">NFT</h1>
-          <div className="flex-grow"></div>
-          {active && balance && tokenBalance ? (
-            <div className="font-semibold flex gap-2">
-              <div>
-                <span className="text-lg font-bold">Acc: </span>
-                {account?.slice(0, 6)}........{account?.slice(account.length - 2)} |
-              </div>
-              <div>
-                <span className="text-lg font-bold">Balance: </span>
-                {parseFloat(formatEther(balance)) + " ETH"} |
-              </div>
-              <div>
-                <span className="text-lg font-bold">Owned: </span>
-                {parseFloat(tokenBalance.toNumber()).toPrecision(2)}
-              </div>
-            </div>
-          ) : (
-            <button
-              className="bg-primary-lighter p-2 px-4 rounded-3xl hover:bg-primary-light shadow-md active:shadow-sm font-bold"
-              onClick={connectWallet}
-            >
-              Connect
-            </button>
-          )}
-        </div>
-      </div>
+      <Nav balance={balance} tokenBalance={tokenBalance} />
       <div className="w-11/12 m-auto">
         <div className="mt-10 flex w-full">
           <div className="w-4/6 h-body relative">

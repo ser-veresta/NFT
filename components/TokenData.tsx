@@ -1,7 +1,9 @@
 import Image from "next/image";
 import React, { useCallback, useEffect, useMemo } from "react";
+import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import useSWR from "swr";
+import { contractState } from "../redux/Contract";
 import ABI from "../utils/abi.json";
 import { fetcher, fetchTokenURI } from "../utils/fetcher";
 
@@ -10,9 +12,9 @@ interface props {
   library: any;
 }
 
-const contractAddress = "0x9027b5f491496Fa658D534b82F61Aa7df05d1a68";
-
 const TokenData: React.FC<props> = ({ token, library }) => {
+  const { contractAddress } = useSelector((state: any): contractState => state.contractReducer);
+
   const { data, error } = useSWR([contractAddress, "nftHoldings", token], { fetcher: fetcher(library, ABI.abi) });
 
   const { data: tokenData } = useSWR(data ? data[2] : null, { fetcher: fetchTokenURI });
