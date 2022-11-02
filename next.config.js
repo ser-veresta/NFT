@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
   swcMinify: true,
   images: {
     domains: ["ipfs.io"],
@@ -13,6 +13,7 @@ const nextConfig = {
 
     return config;
   },
+  output: "standalone"
 };
 
 module.exports = nextConfig;

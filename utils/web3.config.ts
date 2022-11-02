@@ -2,7 +2,7 @@ import { Web3Provider } from "@ethersproject/providers";
 import { InjectedConnector } from "@web3-react/injected-connector";
 
 export const injectedConnector = new InjectedConnector({
-  supportedChainIds: [3, 5, 31337],
+  supportedChainIds: [1,3, 5, 31337, 80001],
 });
 
 export function getLibrary(provider: any): Web3Provider {

@@ -5,38 +5,42 @@ import { toast } from "react-toastify";
 import useSWR from "swr";
 import { contractState } from "../redux/Contract";
 import ABI from "../utils/abi.json";
+import GAME_ABI from "../utils/game_abi.json"
 import { fetcher, fetchTokenURI } from "../utils/fetcher";
 
 interface props {
   token: number;
   library: any;
+  pets?: Boolean
 }
 
-const TokenData: React.FC<props> = ({ token, library }) => {
+const gameContractAddress = "0xBe175D1E7ed8504357fCF5b1B992E9a4952baa03"
+
+const TokenData: React.FC<props> = ({ token, library, pets }) => {
   const { contractAddress } = useSelector((state: any): contractState => state.contractReducer);
 
-  const { data, error } = useSWR([contractAddress, "nftHoldings", token], { fetcher: fetcher(library, ABI.abi) });
+  const { data, error } = useSWR(!pets ? [contractAddress, "nftHoldings", token] : null, { fetcher: fetcher(library, ABI.abi) });
 
-  const { data: tokenData } = useSWR(data ? data[2] : null, { fetcher: fetchTokenURI });
+  const { data: petData, error: petError } = useSWR(pets ? [gameContractAddress, "gameNftStatus", token] : null, { fetcher: fetcher(library, GAME_ABI.abi) })
+
+  const { data: tokenData, error: err } = useSWR(data ? data[3] : petData ? petData[2] : null, { fetcher: fetchTokenURI });
 
   const notify = useCallback((type: "error" | "success", message: string) => {
     toast(message, { type });
   }, []);
 
-  console.log(data);
-
   useEffect(() => {
-    console.log(data);
     if (error && error.reason) {
+      console.log({ error });
       notify("error", error.reason);
     }
-  }, [error]);
+  }, [error, notify]);
 
   return useMemo(() => {
     if (!tokenData) return <p>Loading ...</p>;
     return (
       <>
-        <div className="flex flex-col bg-primary-main p-4 gap-2 rounded-md">
+        <div className="flex flex-col p-4 gap-2 rounded-md">
           <div className="capitalize">
             <strong>{tokenData.name}</strong>
           </div>
@@ -51,7 +55,7 @@ const TokenData: React.FC<props> = ({ token, library }) => {
         </div>
       </>
     );
-  }, [token, tokenData]);
+  }, [tokenData]);
 };
 
 export default TokenData;

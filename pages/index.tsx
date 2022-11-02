@@ -3,9 +3,10 @@ import { useWeb3React } from "@web3-react/core";
 import type { NextPage } from "next";
 import useSWR from "swr";
 import { fetcher, merkleFetcher } from "../utils/fetcher";
-import { parseEther } from "@ethersproject/units";
+import { formatUnits, parseEther } from "@ethersproject/units";
 import { Contract } from "@ethersproject/contracts";
 import { ErrorCode } from "@ethersproject/logger";
+import { hexValue } from "@ethersproject/bytes";
 import ABI from "../utils/abi.json";
 import Head from "next/head";
 import { useCallback, useEffect, useState } from "react";
@@ -13,19 +14,21 @@ import TokenData from "../components/TokenData";
 import { toast } from "react-toastify";
 import Image from "next/image";
 import Nav from "../components/Nav";
-import { useSelector } from "react-redux";
-import { contractState } from "../redux/Contract";
+import { useDispatch, useSelector } from "react-redux";
+import { changeTokenIds, contractState } from "../redux/Contract";
 
 const Home: NextPage = () => {
-  const { contractAddress, id } = useSelector((state: any): contractState => state.contractReducer);
+  const { contractAddress, tokenIds } = useSelector((state: any): contractState => state.contractReducer);
 
-  console.log(id);
+  const dispatch = useDispatch();
 
-  const { account, active, library } = useWeb3React<Web3Provider>();
+  const { account, active, library, chainId } = useWeb3React<Web3Provider>();
 
   const [minting, setMinting] = useState<number>(0);
 
-  const [tokenId, setTokenID] = useState<number[]>([]);
+  const [isChain, setIsChain] = useState<number>(0);
+
+  const [tokenId, setTokenID] = useState<number[]>(tokenIds);
 
   const { data: balance, mutate: mutateBalance } = useSWR(["getBalance", account, "latest"], {
     fetcher: fetcher(library),
@@ -35,7 +38,7 @@ const Home: NextPage = () => {
     fetcher: fetcher(library, ABI.abi),
   });
 
-  const { data } = useSWR([`/proof?id=${id}&leaf=${account}`], {
+  const { data } = useSWR(account ? [`/proof?leaf=${account}&confirm=yes`] : null, {
     fetcher: merkleFetcher,
   });
 
@@ -47,30 +50,71 @@ const Home: NextPage = () => {
     toast.dismiss();
   }, []);
 
+
+  const checkIsChain = useCallback(() => {
+    setIsChain(0);
+
+    if (chainId !== 5) {
+      if (!library || !library.provider || !library.provider.request) return;
+
+      library.provider?.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: hexValue(5) }],
+      });
+
+      setIsChain(1);
+    }
+
+    if (chainId === 5) {
+      setIsChain(1);
+    }
+  }, [chainId, library]);
+
+  useEffect(() => {
+    checkIsChain();
+  }, [chainId, checkIsChain]);
+
+  const getTokenID = useCallback(async () => {
+    if (!isChain) return;
+
+    const contract = new Contract(contractAddress, ABI.abi, library?.getSigner());
+    let filter = contract.filters.Transfer(null, account);
+
+    try {
+      let query = await contract.queryFilter(filter, 0, "latest");
+      let tokenArr: number[] = tokenId;
+
+      for (let obj of query) {
+        if (obj.args && obj.args[2]) {
+          let token = parseInt(formatUnits(obj.args[2]));
+          if (!tokenArr.includes(token)) tokenArr.push(token);
+        }
+      }
+
+      setTokenID(tokenArr);
+      dispatch(changeTokenIds(tokenArr));
+    } catch (error) {
+      console.log(error);
+    }
+  }, [library, isChain, account, contractAddress, dispatch, tokenId]);
+
   useEffect(() => {
     if (!library) return;
     const contract = new Contract(contractAddress, ABI.abi, library?.getSigner());
 
-    // Creating a contract filter
-    let filter = contract.filters.Transfer(null, account);
-
-    // Event Listener to filter all the tokens for the connect address
-    contract.on(filter, async (...args) => {
-      const [f, t, token] = args;
-      setTokenID((val) => [...val, token.toNumber()]);
-
-      mutateBalance(undefined, true);
-      mutateTokenBalance(undefined, true);
-    });
+    (async () => {
+      await getTokenID();
+    })();
 
     return () => {
       //Remove the Even Listener
-      contract.removeAllListeners(filter);
+      contract.removeAllListeners();
 
       // Dismiss all toasters
       dismiss();
     };
-  }, [library]);
+  }, [library, contractAddress, dismiss, getTokenID]);
+
 
   // To Handle Minting NFT
   const handleMint = async () => {
@@ -80,9 +124,10 @@ const Home: NextPage = () => {
     const contract = new Contract(contractAddress, ABI.abi, library?.getSigner());
 
     try {
+      if (!isChain) throw { message: "Please Connect to goerli Network to Mint!!" };
+
       if (!data || !data.proof || !data.proof.length) {
-        setMinting(0);
-        return notify("error", "Proof not Generated for you, Plese contact Admin.");
+        throw { message: "Proof not Generated for you, Plese contact Admin." };
       }
 
       let test = await contract.callStatic.whitelistMint(data.proof, account, { value: parseEther("0.001") });
@@ -117,11 +162,11 @@ const Home: NextPage = () => {
         <title>NFT</title>
         <meta name="viewport" content="initial-scale=1.0, width=device-width" />
       </Head>
-      <Nav balance={balance} tokenBalance={tokenBalance} />
+      <Nav balance={balance} tokenBalance={tokenBalance} checkIsChain={checkIsChain} />
       <div className="w-11/12 m-auto">
         <div className="mt-10 flex w-full">
           <div className="w-4/6 h-body relative">
-            <Image src="/NFT.png" layout="fill" objectFit="contain" />
+            <Image alt="" src="/NFT.png" layout="fill" objectFit="contain" />
           </div>
           <div className="px-2 flex flex-col justify-center items-start gap-10 h-body">
             <h2 className="text-2xl">
@@ -140,14 +185,14 @@ const Home: NextPage = () => {
         </div>
 
         <div className="my-10">
-          <h1 className="text-2xl font-semibold underline">Your NFT's</h1>
+          <h1 className="text-2xl font-semibold underline">Your NFT&apos;s</h1>
           <div className="flex gap-2 mt-5">
             {tokenId.length ? (
               tokenId.map((token, idx) => <TokenData key={idx} token={token} library={library} />)
             ) : (
               <div className="mt-5">
-                You own <strong>Zero</strong> NFT's <strong>(or)</strong> connect to a <strong>Wallet</strong> to view
-                your NFT's
+                You own <strong>Zero</strong> NFT&apos;s <strong>(or)</strong> connect to a <strong>Wallet</strong> to view
+                your NFT&apos;s
               </div>
             )}
           </div>

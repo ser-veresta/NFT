@@ -5,7 +5,7 @@ export const fetcher =
   (library: any, abi?: any) =>
   (...args: any[]) => {
     const [arg1, arg2, ...params] = args;
-    // console.log([...args]);
+    // console.log(arg1,arg2);
 
     if (isAddress(arg1)) {
       const contract = new Contract(arg1, abi, library.getSigner());

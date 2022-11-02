@@ -7,10 +7,11 @@ import { fetcher, merkleFetcher } from "../../utils/fetcher";
 import ABI from "../../utils/abi.json";
 import { useDispatch, useSelector } from "react-redux";
 import { changeId, contractState } from "../../redux/Contract";
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import axios from "axios";
+import { hexValue } from "@ethersproject/bytes";
 
-const whitelistPage: NextPage = () => {
+const WhitelistPage: NextPage = () => {
   const { contractAddress, id } = useSelector((state: any): contractState => state.contractReducer);
   const dispatch = useDispatch();
 
@@ -18,7 +19,9 @@ const whitelistPage: NextPage = () => {
 
   const [walletAddress, setWalletAddress] = useState<string>("");
 
-  const { library, account } = useWeb3React<Web3Provider>();
+  const [isChain, setIsChain] = useState<number>(0);
+
+  const { library, account, chainId } = useWeb3React<Web3Provider>();
 
   const { data: balance } = useSWR(["getBalance", account, "latest"], {
     fetcher: fetcher(library),
@@ -28,17 +31,44 @@ const whitelistPage: NextPage = () => {
     fetcher: fetcher(library, ABI.abi),
   });
 
-  const { data } = useSWR([`/users?id=${id}`], {
+  const { data: currID } = useSWR([`/current`], {
     fetcher: merkleFetcher,
   });
+
+  const { data, mutate } = useSWR([`/users`], {
+    fetcher: merkleFetcher,
+  });
+
+
+  const checkIsChain = useCallback(() => {
+    setIsChain(0);
+
+    if (chainId !== 5) {
+      if (!library || !library.provider || !library.provider.request) return;
+
+      library.provider?.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: hexValue(5) }],
+      });
+
+      setIsChain(1);
+    }
+
+    if (chainId === 5) {
+      setIsChain(1);
+    }
+  }, [chainId, library]);
+
+  useEffect(() => {
+    checkIsChain();
+  }, [chainId, checkIsChain]);
 
   const onSubmit = async () => {
     setRootUpdating(true);
     console.log("updating....");
-    let idRes;
     try {
-      if (id) {
-        let { data } = await axios.patch("http://localhost:9000/merkle/root", { data: walletAddress.split(","), id });
+      if (currID?.id) {
+        await axios.patch("http://localhost:9000/merkle/root", { data: walletAddress.split(",") });
       } else {
         let { data } = await axios.post("http://localhost:9000/merkle/root", { data: walletAddress.split(",") });
         dispatch(changeId(data.id));
@@ -47,37 +77,53 @@ const whitelistPage: NextPage = () => {
       console.log(error);
     } finally {
       setRootUpdating(false);
+      setWalletAddress("");
+      mutate(undefined, true);
     }
   };
 
-  console.log(data);
-
   return (
     <div className="font-Quicksand">
-      <Nav balance={balance} tokenBalance={tokenBalance} />
+      <Nav balance={balance} tokenBalance={tokenBalance} checkIsChain={checkIsChain} />
       <div className="w-11/12 m-auto">
-        <div className="mt-10 flex w-full">
-          <div className="flex flex-col gap-2">
-            <input
-              className="w-52 border-2 px-2 p-1 border-primary-main rounded-md bg-gray-200"
-              name="walletAddress"
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-            />
-            <button
-              className="px-2 py-2 rounded-full bg-primary-light hover:bg-primary-main active:shadow-none shadow disabled:cursor-not-allowed disabled:active:shadow disabled:bg-primary-dark disabled:hover:bg-primary-dark"
-              disabled={rootUpdating}
-              onClick={onSubmit}
-            >
-              {!id ? "Set Root" : "Update Root"}
-            </button>
+        <div className="mt-10 flex gap-2 w-full min-h-full">
+          <div className="w-full flex flex-col gap-4 items-start justify-start">
+            <label className="text-2xl font-bold" htmlFor="walletAddress">
+              Enter the address you need to add to the whitelist bellow.
+            </label>
+            <div className="w-full flex gap-1 items-center">
+              <input
+                className="w-3/4 px-4 p-2 rounded-xl outline-none hover:bg-primary-light bg-primary-lighter focus:bg-primary-light border-2 border-primary-light"
+                name="walletAddress"
+                id="walletAddress"
+                placeholder="Enter the Wallet Address Here"
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+              />
+              <button
+                className="px-4 py-2 rounded-3xl rounded-tl-none rounded-br-none bg-primary-light hover:bg-primary-main active:shadow-none shadow disabled:cursor-not-allowed disabled:active:shadow disabled:bg-primary-dark disabled:hover:bg-primary-dark"
+                disabled={rootUpdating}
+                onClick={onSubmit}
+              >
+                {!currID?.id ? "Set Root" : "Update Root"}
+              </button>
+            </div>
+            <div>
+              <p><strong>Note:</strong> Multiple addresses can be added by using a comma seperated value </p>
+              <p>Eg - 0x5dc5742BdC3C6cE9113410f162ef0Bc3C8d7DB08,0x81feE096e038404df2e2FfCa97B54253f2376966</p>
+            </div>
+
           </div>
-          <div className="border w-36">
-            <ol>
-              {data?.leafs?.map((item: string) => (
-                <li>{item}</li>
-              ))}
-            </ol>
+          <div className="flex-grow"></div>
+          <div className="w-3/4">
+            <h3 className="text-2xl font-bold">Whitlised Users:</h3>
+            <div className="border p-5 px-10 bg-primary-lighter rounded-md mt-3 min-h-full">
+              <ol className="list-decimal">
+                {data?.leafs?.map((item: string, idx: number) => (
+                  <li className="text-xl font-semibold" key={idx}>{item}</li>
+                ))}
+              </ol>
+            </div>
           </div>
         </div>
       </div>
@@ -85,4 +131,4 @@ const whitelistPage: NextPage = () => {
   );
 };
 
-export default whitelistPage;
+export default WhitelistPage;
