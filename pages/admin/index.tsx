@@ -10,6 +10,7 @@ import { changeId, contractState } from "../../redux/Contract";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { hexValue } from "@ethersproject/bytes";
+import Loader from "../../components/Loader";
 
 const WhitelistPage: NextPage = () => {
   const { contractAddress, id } = useSelector((state: any): contractState => state.contractReducer);
@@ -68,9 +69,9 @@ const WhitelistPage: NextPage = () => {
     console.log("updating....");
     try {
       if (currID?.id) {
-        await axios.patch("http://localhost:9000/merkle/root", { data: walletAddress.split(",") });
+        await axios.patch(`${process.env.NEXT_PUBLIC_HOSTNAME}/merkle/root`, { data: walletAddress.split(",") });
       } else {
-        let { data } = await axios.post("http://localhost:9000/merkle/root", { data: walletAddress.split(",") });
+        let { data } = await axios.post(`${process.env.NEXT_PUBLIC_HOSTNAME}/merkle/root`, { data: walletAddress.split(",") });
         dispatch(changeId(data.id));
       }
     } catch (error) {
@@ -127,6 +128,7 @@ const WhitelistPage: NextPage = () => {
           </div>
         </div>
       </div>
+      {rootUpdating ? <Loader text={"Updating Whitelist, Please Wait....."} /> : null}
     </div>
   );
 };

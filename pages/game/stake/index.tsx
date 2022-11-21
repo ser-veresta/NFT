@@ -15,6 +15,7 @@ import { ErrorCode } from "@ethersproject/logger";
 import { hexValue } from "@ethersproject/bytes";
 import { formatUnits } from "@ethersproject/units";
 import Link from "next/link";
+import Loader from "../../../components/Loader";
 
 const stakeContractAddress = "0xc3Ee84204152C0D065D4D72f9f91ecB73D2bAb43";
 
@@ -250,6 +251,7 @@ const StakePage: NextPage = () => {
           <div></div>
         </div>
       </div>
+      {staking ? <Loader text={"Staking the token, Please Wait......"} /> : null}
     </div>
   );
 };

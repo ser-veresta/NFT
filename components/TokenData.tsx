@@ -14,7 +14,7 @@ interface props {
   pets?: Boolean
 }
 
-const gameContractAddress = "0xBe175D1E7ed8504357fCF5b1B992E9a4952baa03"
+const gameContractAddress = "0xad142f3F2FC64fDC66E825879Dc5A263E66D7E0F"
 
 const TokenData: React.FC<props> = ({ token, library, pets }) => {
   const { contractAddress } = useSelector((state: any): contractState => state.contractReducer);
@@ -28,6 +28,10 @@ const TokenData: React.FC<props> = ({ token, library, pets }) => {
   const notify = useCallback((type: "error" | "success", message: string) => {
     toast(message, { type });
   }, []);
+
+  useEffect(() => {
+    console.log(petData, petError, token)
+  }, [])
 
   useEffect(() => {
     if (error && error.reason) {

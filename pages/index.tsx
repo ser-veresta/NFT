@@ -16,6 +16,7 @@ import Image from "next/image";
 import Nav from "../components/Nav";
 import { useDispatch, useSelector } from "react-redux";
 import { changeTokenIds, contractState } from "../redux/Contract";
+import Loader from "../components/Loader";
 
 const Home: NextPage = () => {
   const { contractAddress, tokenIds } = useSelector((state: any): contractState => state.contractReducer);
@@ -198,6 +199,7 @@ const Home: NextPage = () => {
           </div>
         </div>
       </div>
+      {minting ? <Loader text={"Minting, Please Wait...."} /> : null}
     </div>
   );
 };

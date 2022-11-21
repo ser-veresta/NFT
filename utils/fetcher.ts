@@ -23,7 +23,9 @@ export const fetchTokenURI = (url: string) => {
 };
 
 export const merkleFetcher = (path: String) => {
-  let baseUrl = "http://localhost:9000/merkle";
+  let baseUrl = `${process.env.NEXT_PUBLIC_HOSTNAME}/merkle`;
+
+  // console.log(baseUrl + path);
 
   return fetch(baseUrl + path).then((r) => r.json());
 };

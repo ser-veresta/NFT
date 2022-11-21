@@ -12,8 +12,10 @@ import { fetcher } from "../../../utils/fetcher";
 import { toast } from "react-toastify";
 import { ErrorCode } from "@ethersproject/logger";
 import TokenData from "../../../components/TokenData";
+import Loader from "../../../components/Loader";
+import { formatUnits } from "@ethersproject/units";
 
-const gameContractAddress = "0xE5E5FDf09A8a2eF018b94b5b6b96Ff175b7DE54d"
+const gameContractAddress = "0xad142f3F2FC64fDC66E825879Dc5A263E66D7E0F"
 const stakeContractAddress = "0xc3Ee84204152C0D065D4D72f9f91ecB73D2bAb43";
 
 const PlayPage: NextPage = () => {
@@ -49,6 +51,7 @@ const PlayPage: NextPage = () => {
     } = useSWR([gameContractAddress, "ownedNfts", account], {
         fetcher: fetcher(library, ABI.abi),
     });
+
 
     const notify = useCallback((type: "error" | "success", message: string) => {
         toast(message, { type });
@@ -122,7 +125,7 @@ const PlayPage: NextPage = () => {
         } catch (error) {
             console.log(error);
         } finally {
-            console.log(data)
+            // console.log(data)
         }
     }, [isChain, data, account, mutateNfts]);
 
@@ -212,6 +215,7 @@ const PlayPage: NextPage = () => {
                     </div>
                 </div>
             </div>
+            {minting ? <Loader text={"Minting, Please Wait....."} /> : null}
         </div>
     )
 }
